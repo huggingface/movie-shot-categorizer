@@ -133,7 +133,7 @@ def evaluate_model(
     val_loss = 0
     with torch.no_grad():
         val_item_count = 0
-        for batch in tqdm(val_loader, desc=f"Evaluation at step {global_step}", position=rank):
+        for batch in tqdm(val_loader, desc=f"Evaluation at step {global_step}", disable=rank != 0):
             val_item_count += len(batch)
 
             # Prepare the input and target tensors
@@ -159,10 +159,10 @@ def evaluate_model(
                 break
 
         avg_val_loss = val_loss / val_item_count
-        print(f"Rank {rank} - Step {global_step} - Average Validation Loss: {avg_val_loss}")
 
         # Log metrics to wandb
         if rank == 0:
+            print(f"Rank {rank} - Step {global_step} - Average Validation Loss: {avg_val_loss}")
             wandb.log({f"val_loss": avg_val_loss, "step": global_step})
 
     model.train()
@@ -282,7 +282,6 @@ def train_model(
                 ]:
                     losses.append(forward_with_model(model, inputs, labels, device=device).loss)
 
-                print(f"{torch.stack(losses).shape=}")
                 loss = torch.stack(losses).mean()
 
                 scaler.scale(loss).backward()
