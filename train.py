@@ -182,6 +182,7 @@ def train_model(
     lr=1e-6,
     eval_steps=10,
     max_val_item_count=1000,
+    save_epochs=5,
 ):
     setup(rank, world_size)
     device = torch.device(f"cuda:{rank}")
@@ -317,7 +318,7 @@ def train_model(
             wandb.log({"epoch": epoch + 1, "epoch_train_loss": avg_train_loss})
 
         # Save model checkpoint
-        if rank == 0:  # Only the main process saves the checkpoint
+        if rank == 0 and global_step % save_epochs:  # Only the main process saves the checkpoint
             output_dir = f"./model_checkpoints/epoch_{epoch + 1}"
             os.makedirs(output_dir, exist_ok=True)
             model.module.save_pretrained(output_dir)
@@ -325,6 +326,8 @@ def train_model(
 
     # Finish the wandb run
     if rank == 0:
+        model.module.save_pretrained(output_dir)
+        processor.save_pretrained(output_dir)
         wandb.finish()
 
     cleanup()
@@ -347,6 +350,7 @@ def main():
     parser.add_argument(
         "--max_val_item_count", type=int, default=1000, help="Maximum number of items to evaluate on during validation"
     )
+    parser.add_argument("--save_epochs", type=int, default=5, help="Checkpoint saving interval.")
     args = parser.parse_args()
 
     world_size = torch.cuda.device_count()
@@ -365,6 +369,7 @@ def main():
             args.lr,
             args.eval_steps,
             args.max_val_item_count,
+            args.save_epochs,
         ),
         nprocs=world_size,
         join=True,
