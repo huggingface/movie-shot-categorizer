@@ -16,6 +16,7 @@ set -xe
 
 export NCCL_ASYNC_ERROR_HANDLING=1
 
-srun --wait=60 --kill-on-bad-exit=1 python train.py --epochs 50 --eval_steps 5000 --save_epochs 10 --dataset_id=diffusers-internal-dev/ShotDEAD
+srun --wait=60 --kill-on-bad-exit=1 accelerate launch --config_file=configs/accelerate-configs/ds.yaml accelerate_train.py \
+    --config=configs/training-configs/config.yaml
 
 echo "END TIME: $(date)"

@@ -172,4 +172,7 @@ cython_debug/
 
 model_checkpoints/*
 
+model_checkpoints_accelerate/*
+
 wandb/
+

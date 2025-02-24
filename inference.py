@@ -4,7 +4,7 @@ from PIL import Image
 import requests 
 
 
-folder_path = "/fsx/sayak/movie-shot-categorizer/model_checkpoints/epoch_9"
+folder_path = "/fsx/sayak/movie-shot-categorizer/model_checkpoints_accelerate/model@Florence-2-large-ds@ShotDEAD-LLTCC-bs@16-8bit@False-lora@False-lr@1e-06-mp@fp16-fve@True"
 model = AutoModelForCausalLM.from_pretrained(
     folder_path, torch_dtype=torch.float16, trust_remote_code=True
 ).to("cuda").eval()
