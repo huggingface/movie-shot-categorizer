@@ -280,9 +280,7 @@ def train_model(accelerator, args):
                     (lighting_type_inputs, lighting_types),
                     (composition_inputs, compositions),
                 ]:
-                    losses.append(
-                        forward_with_model(ft_model, inputs, labels, weight_dtype=weight_dtype).loss
-                    )
+                    losses.append(forward_with_model(ft_model, inputs, labels, weight_dtype=weight_dtype).loss)
 
                 loss = torch.stack(losses).mean()
                 accelerator.backward(loss)

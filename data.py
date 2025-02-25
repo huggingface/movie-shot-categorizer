@@ -1,5 +1,5 @@
 from datasets import load_dataset
-import accelerate 
+import accelerate
 
 
 NONE_KEY_MAP = {
@@ -24,7 +24,7 @@ def preprocess_batch(rows):
     for k in NONE_KEY_MAP:
         new_key = f"<{k.replace(' ', '_').upper()}>"
         processed_data[new_key] = []
-    
+
     # Process each example (by index)
     for i in range(n):
         # For each key in NONE_KEY_MAP, process the value for the i-th example.
@@ -41,7 +41,7 @@ def preprocess_batch(rows):
                 detail = default.replace("no_", "unspecified ").replace("_", " ")
             new_key = f"<{k.replace(' ', '_').upper()}>"
             processed_data[new_key].append(detail)
-        
+
         # Process the image field if present.
         if "image" in rows:
             image = rows["image"][i]
@@ -58,12 +58,12 @@ def preprocess_batch(rows):
 def get_dataset(accelerator=None, dataset_id="diffusers-internal-dev/ShotDEAD-5000", cache_dir=None, num_proc=4):
     if accelerator is None:
         accelerator = accelerate.PartialState()
-    
+
     keep_cols = set(["Color", "image", "Lighting", "Lighting Type", "Composition"])
     dataset = load_dataset(dataset_id, split="train", cache_dir=cache_dir)
     all_cols = set(dataset.features.keys())
     dataset = dataset.remove_columns(list(all_cols - keep_cols))
-    
+
     with accelerator.main_process_first():
         dataset = dataset.with_transform(preprocess_batch)
     return dataset

@@ -1,21 +1,18 @@
 from transformers import AutoModelForCausalLM, AutoProcessor
 import torch
-from PIL import Image 
-import requests 
+from PIL import Image
+import requests
 
 
-folder_path = "/fsx/sayak/movie-shot-categorizer/model_checkpoints_accelerate/model@Florence-2-large-ds@ShotDEAD-LLTCC-bs@16-8bit@False-lora@False-lr@1e-06-mp@fp16-fve@True"
-model = AutoModelForCausalLM.from_pretrained(
-    folder_path, torch_dtype=torch.float16, trust_remote_code=True
-).to("cuda").eval()
+folder_path = "..."
+model = (
+    AutoModelForCausalLM.from_pretrained(folder_path, torch_dtype=torch.float16, trust_remote_code=True)
+    .to("cuda")
+    .eval()
+)
 processor = AutoProcessor.from_pretrained(folder_path, trust_remote_code=True)
 
-prompts = [
-    "<COLOR>",
-    "<LIGHTING>",
-    "<LIGHTING_TYPE>",
-    "<COMPOSITION>"
-]
+prompts = ["<COLOR>", "<LIGHTING>", "<LIGHTING_TYPE>", "<COMPOSITION>"]
 url = "https://huggingface.co/datasets/sayakpaul/sample-datasets/resolve/main/shot_still.jpg"
 image = Image.open(requests.get(url, stream=True).raw)
 
@@ -32,8 +29,6 @@ with torch.no_grad() and torch.inference_mode():
         )
         generated_text = processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
         parsed_answer = processor.post_process_generation(
-            generated_text,
-            task=prompt,
-            image_size=(image.width, image.height)
+            generated_text, task=prompt, image_size=(image.width, image.height)
         )
         print(parsed_answer)
