@@ -1,0 +1,6 @@
+transformers>=4.49.0
+datasets
+wandb
+accelerate>=1.0.0
+timm
+Pillow
