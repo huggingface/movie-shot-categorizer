@@ -125,8 +125,12 @@ def train_model(accelerator, args):
     dataset = get_dataset(
         accelerator=accelerator, dataset_id=args.dataset_id, num_proc=args.num_proc, cache_dir=args.cache_dir
     )
-    splits = dataset.train_test_split(0.1)
+    with accelerator.main_process_first():
+        splits = dataset.train_test_split(0.1, seed=2025)
     train_dataset, val_dataset = splits["train"], splits["test"]
+    with accelerator.main_process_first():
+        further_splits = val_dataset.train_test_split(0.1, seed=2025)
+    val_dataset = further_splits["train"]
 
     # Load the model and processor
     ft_model = AutoModelForCausalLM.from_pretrained(args.model_id, trust_remote_code=True)

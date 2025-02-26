@@ -65,6 +65,7 @@ def get_dataset(accelerator=None, dataset_id="diffusers-internal-dev/ShotDEAD-50
     dataset = dataset.remove_columns(list(all_cols - keep_cols))
 
     with accelerator.main_process_first():
+        dataset = dataset.shuffle(seed=2025)
         dataset = dataset.with_transform(preprocess_batch)
     return dataset
 
