@@ -1,91 +1,13 @@
 # git clone https://github.com/bigdata-pw/florence-tool.git; cd florence-tool; pip install -r requirements.txt; pip install -e .
 
 from florence_tool import FlorenceTool
+import os
 from datasets import load_dataset
+import wandb
 import tqdm
 import json
+from data import NONE_KEY_MAP
 
-checkpoint = "diffusers-internal-dev/8bit_False-lora_False-lr_1e_06-mp_fp16-fve_True"
-name = "8bit_False-lora_False-lr_1e_06-mp_fp16-fve_True"
-
-florence = FlorenceTool(
-    checkpoint,
-    device="cuda",
-    dtype="float16",
-    check_task_types=False,
-)
-florence.load_model()
-
-dataset = load_dataset("diffusers-internal-dev/ShotDEAD-LLTCC", streaming=True)["train"]
-
-color = {"match": {}, "extra": {}, "missing": {}}
-lighting = {"match": {}, "extra": {}, "missing": {}}
-lighting_type = {"match": {}, "extra": {}, "missing": {}}
-composition = {"match": {}, "extra": {}, "missing": {}}
-
-count = 0
-
-for still in tqdm.tqdm(dataset):
-    image = still["image"].convert("RGB")
-    original = {
-        "<COLOR>": still["Color"],
-        "<LIGHTING>": still["Lighting"],
-        "<LIGHTING_TYPE>": still["Lighting Type"],
-        "<COMPOSITION>": still["Composition"],
-    }
-    output = florence.run(
-        image=image,
-        task_prompt=["<COLOR>", "<LIGHTING>", "<LIGHTING_TYPE>", "<COMPOSITION>"],
-    )
-    output["<COLOR>"] = output["<COLOR>"].split(", ")
-    output["<LIGHTING>"] = output["<LIGHTING>"].split(", ")
-    output["<LIGHTING_TYPE>"] = output["<LIGHTING_TYPE>"].split(", ")
-    output["<COMPOSITION>"] = output["<COMPOSITION>"].split(", ")
-    matching_color = set(original["<COLOR>"]).intersection(set(output["<COLOR>"]))
-    extra_color = set(output["<COLOR>"]) - set(original["<COLOR>"])
-    missing_color = set(original["<COLOR>"]) - set(output["<COLOR>"])
-
-    matching_lighting = set(original["<LIGHTING>"]).intersection(
-        set(output["<LIGHTING>"])
-    )
-    extra_lighting = set(output["<LIGHTING>"]) - set(original["<LIGHTING>"])
-    missing_lighting = set(original["<LIGHTING>"]) - set(output["<LIGHTING>"])
-
-    matching_lighting_type = set(original["<LIGHTING_TYPE>"]).intersection(
-        set(output["<LIGHTING_TYPE>"])
-    )
-    extra_lighting_type = set(output["<LIGHTING_TYPE>"]) - set(
-        original["<LIGHTING_TYPE>"]
-    )
-    missing_lighting_type = set(original["<LIGHTING_TYPE>"]) - set(
-        output["<LIGHTING_TYPE>"]
-    )
-
-    matching_composition = set(original["<COMPOSITION>"]).intersection(
-        set(output["<COMPOSITION>"])
-    )
-    extra_composition = set(output["<COMPOSITION>"]) - set(original["<COMPOSITION>"])
-    missing_composition = set(original["<COMPOSITION>"]) - set(output["<COMPOSITION>"])
-
-    color["match"][still["id"]] = len(matching_color)
-    color["extra"][still["id"]] = len(extra_color)
-    color["missing"][still["id"]] = len(missing_color)
-
-    lighting["match"][still["id"]] = len(matching_lighting)
-    lighting["extra"][still["id"]] = len(extra_lighting)
-    lighting["missing"][still["id"]] = len(missing_lighting)
-
-    lighting_type["match"][still["id"]] = len(matching_lighting_type)
-    lighting_type["extra"][still["id"]] = len(extra_lighting_type)
-    lighting_type["missing"][still["id"]] = len(missing_lighting_type)
-
-    composition["match"][still["id"]] = len(matching_composition)
-    composition["extra"][still["id"]] = len(extra_composition)
-    composition["missing"][still["id"]] = len(missing_composition)
-
-    count += 1
-    if count > 1000:
-        break
 
 def compute_metrics(category):
     total_match = sum(category["match"].values())
@@ -100,32 +22,142 @@ def compute_metrics(category):
     accuracy = (total_match / total) if total > 0 else 0
 
     return {
-        'precision': precision * 100,
+        "precision": precision * 100,
         "recall": recall * 100,
         "f1_score": f1_score * 100,
-        "accuracy": accuracy * 100
+        "accuracy": accuracy * 100,
     }
 
 
-color_metrics = compute_metrics(color)
-lighting_metrics = compute_metrics(lighting)
-lighting_type_metrics = compute_metrics(lighting_type)
-composition_metrics = compute_metrics(composition)
+root_ckpt_dir = "model_checkpoints_accelerate"
+checkpoints_to_evals = sorted(os.listdir(root_ckpt_dir))
+checkpoints_to_evals = [c for c in checkpoints_to_evals if not c.endswith(".py")]
+for checkpoint in checkpoints_to_evals:
+    wandb.init(project="shot-categorizer", name=f"{checkpoint}-eval")
 
-overall_precision = (color_metrics['precision'] + lighting_metrics['precision'] + lighting_type_metrics['precision'] + composition_metrics['precision']) / 4
-overall_recall = (color_metrics['recall'] + lighting_metrics['recall'] + lighting_type_metrics['recall'] + composition_metrics['recall']) / 4
-overall_f1 = (color_metrics['f1_score'] + lighting_metrics['f1_score'] + lighting_type_metrics['f1_score'] + composition_metrics['f1_score']) / 4
-overall_accuracy = (color_metrics['accuracy'] + lighting_metrics['accuracy'] + lighting_type_metrics['accuracy'] + composition_metrics['accuracy']) / 4
+    checkpoint_path = os.path.join(root_ckpt_dir, checkpoint)
+    florence = FlorenceTool(
+        checkpoint_path,
+        device="cuda",
+        dtype="float16",
+        check_task_types=False,
+    )
+    florence.load_model()
 
-print(f"Color - Precision: {color_metrics['precision']:.2f}%, Recall: {color_metrics['recall']:.2f}%, F1-score: {color_metrics['f1_score']:.2f}%, Accuracy-score: {color_metrics['accuracy']:.2f}%")
-print(f"Lighting - Precision: {lighting_metrics['precision']:.2f}%, Recall: {lighting_metrics['recall']:.2f}%, F1-score: {lighting_metrics['f1_score']:.2f}%, Accuracy-score: {lighting_metrics['accuracy']:.2f}%")
-print(f"Lighting Type - Precision: {lighting_type_metrics['precision']:.2f}%, Recall: {lighting_type_metrics['recall']:.2f}%, F1-score: {lighting_type_metrics['f1_score']:.2f}%, Accuracy-score: {lighting_type_metrics['accuracy']:.2f}%")
-print(f"Composition - Precision: {composition_metrics['precision']:.2f}%, Recall: {composition_metrics['recall']:.2f}%, F1-score: {composition_metrics['f1_score']:.2f}%, Accuracy-score: {composition_metrics['accuracy']:.2f}%")
-print(f"Overall - Precision: {overall_precision:.2f}%, Recall: {overall_recall:.2f}%, F1-score: {overall_f1:.2f}%, Accuracy-score: {overall_accuracy:.2f}%")
+    ds_to_id = (
+        "diffusers-internal-dev/ShotDEAD-test"
+        if "LLTCC" not in checkpoint
+        else "diffusers-internal-dev/ShotDEAD-LLTCC-test"
+    )
+    dataset = load_dataset(ds_to_id, split="train")
 
-with open(f"{name}.json", "w") as f:
-    json.dump(
-        {
+    color = {"match": {}, "extra": {}, "missing": {}}
+    lighting = {"match": {}, "extra": {}, "missing": {}}
+    lighting_type = {"match": {}, "extra": {}, "missing": {}}
+    composition = {"match": {}, "extra": {}, "missing": {}}
+
+    count = 0
+
+    for i, still in tqdm.tqdm(enumerate(dataset)):
+        image = still["image"].convert("RGB")
+        original = {
+            "<COLOR>": still["Color"] if still["Color"] else NONE_KEY_MAP["Color"],
+            "<LIGHTING>": still["Lighting"] if still["Lighting"] else NONE_KEY_MAP["Lighting"],
+            "<LIGHTING_TYPE>": still["Lighting Type"] if still["Lighting Type"] else NONE_KEY_MAP["Lighting Type"],
+            "<COMPOSITION>": still["Composition"] if still["Composition"] else NONE_KEY_MAP["Composition"],
+        }
+        output = florence.run(
+            image=image,
+            task_prompt=["<COLOR>", "<LIGHTING>", "<LIGHTING_TYPE>", "<COMPOSITION>"],
+        )
+        output["<COLOR>"] = output["<COLOR>"].split(", ")
+        output["<LIGHTING>"] = output["<LIGHTING>"].split(", ")
+        output["<LIGHTING_TYPE>"] = output["<LIGHTING_TYPE>"].split(", ")
+        output["<COMPOSITION>"] = output["<COMPOSITION>"].split(", ")
+        matching_color = set(original["<COLOR>"]).intersection(set(output["<COLOR>"]))
+        extra_color = set(output["<COLOR>"]) - set(original["<COLOR>"])
+        missing_color = set(original["<COLOR>"]) - set(output["<COLOR>"])
+
+        matching_lighting = set(original["<LIGHTING>"]).intersection(set(output["<LIGHTING>"]))
+        extra_lighting = set(output["<LIGHTING>"]) - set(original["<LIGHTING>"])
+        missing_lighting = set(original["<LIGHTING>"]) - set(output["<LIGHTING>"])
+
+        matching_lighting_type = set(original["<LIGHTING_TYPE>"]).intersection(set(output["<LIGHTING_TYPE>"]))
+        extra_lighting_type = set(output["<LIGHTING_TYPE>"]) - set(original["<LIGHTING_TYPE>"])
+        missing_lighting_type = set(original["<LIGHTING_TYPE>"]) - set(output["<LIGHTING_TYPE>"])
+
+        matching_composition = set(original["<COMPOSITION>"]).intersection(set(output["<COMPOSITION>"]))
+        extra_composition = set(output["<COMPOSITION>"]) - set(original["<COMPOSITION>"])
+        missing_composition = set(original["<COMPOSITION>"]) - set(output["<COMPOSITION>"])
+
+        color["match"][i] = len(matching_color)
+        color["extra"][i] = len(extra_color)
+        color["missing"][i] = len(missing_color)
+
+        lighting["match"][i] = len(matching_lighting)
+        lighting["extra"][i] = len(extra_lighting)
+        lighting["missing"][i] = len(missing_lighting)
+
+        lighting_type["match"][i] = len(matching_lighting_type)
+        lighting_type["extra"][i] = len(extra_lighting_type)
+        lighting_type["missing"][i] = len(missing_lighting_type)
+
+        composition["match"][i] = len(matching_composition)
+        composition["extra"][i] = len(extra_composition)
+        composition["missing"][i] = len(missing_composition)
+
+        count += 1
+        if count > 1000:
+            break
+
+    color_metrics = compute_metrics(color)
+    lighting_metrics = compute_metrics(lighting)
+    lighting_type_metrics = compute_metrics(lighting_type)
+    composition_metrics = compute_metrics(composition)
+
+    overall_precision = (
+        color_metrics["precision"]
+        + lighting_metrics["precision"]
+        + lighting_type_metrics["precision"]
+        + composition_metrics["precision"]
+    ) / 4
+    overall_recall = (
+        color_metrics["recall"]
+        + lighting_metrics["recall"]
+        + lighting_type_metrics["recall"]
+        + composition_metrics["recall"]
+    ) / 4
+    overall_f1 = (
+        color_metrics["f1_score"]
+        + lighting_metrics["f1_score"]
+        + lighting_type_metrics["f1_score"]
+        + composition_metrics["f1_score"]
+    ) / 4
+    overall_accuracy = (
+        color_metrics["accuracy"]
+        + lighting_metrics["accuracy"]
+        + lighting_type_metrics["accuracy"]
+        + composition_metrics["accuracy"]
+    ) / 4
+
+    print(
+        f"Color - Precision: {color_metrics['precision']:.2f}%, Recall: {color_metrics['recall']:.2f}%, F1-score: {color_metrics['f1_score']:.2f}%, Accuracy-score: {color_metrics['accuracy']:.2f}%"
+    )
+    print(
+        f"Lighting - Precision: {lighting_metrics['precision']:.2f}%, Recall: {lighting_metrics['recall']:.2f}%, F1-score: {lighting_metrics['f1_score']:.2f}%, Accuracy-score: {lighting_metrics['accuracy']:.2f}%"
+    )
+    print(
+        f"Lighting Type - Precision: {lighting_type_metrics['precision']:.2f}%, Recall: {lighting_type_metrics['recall']:.2f}%, F1-score: {lighting_type_metrics['f1_score']:.2f}%, Accuracy-score: {lighting_type_metrics['accuracy']:.2f}%"
+    )
+    print(
+        f"Composition - Precision: {composition_metrics['precision']:.2f}%, Recall: {composition_metrics['recall']:.2f}%, F1-score: {composition_metrics['f1_score']:.2f}%, Accuracy-score: {composition_metrics['accuracy']:.2f}%"
+    )
+    print(
+        f"Overall - Precision: {overall_precision:.2f}%, Recall: {overall_recall:.2f}%, F1-score: {overall_f1:.2f}%, Accuracy-score: {overall_accuracy:.2f}%"
+    )
+
+    with open(f"{checkpoint}.json", "w") as f:
+        results = {
             "color": color,
             "lighting": lighting,
             "lighting_type": lighting_type,
@@ -139,4 +171,6 @@ with open(f"{name}.json", "w") as f:
             "overall_f1": overall_f1,
             "overall_accuracy": overall_accuracy,
         }
-    )
+        json.dump(results, f)
+        wandb.log(results)
+        wandb.finish()
