@@ -41,7 +41,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--image_path", type=str, help="Path to the image.")
     parser.add_argument(
-        "--repo_id", type=str, default="diffusers-internal-dev/shot-categorizer-v0", help="Path to the image."
+        "--repo_id", type=str, default="diffusers/shot-categorizer-v0", help="Path to the image."
     )
     args = parser.parse_args()
 

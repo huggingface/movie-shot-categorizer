@@ -1,7 +1,7 @@
-model_id: "microsoft/Florence-2-large-ft"
-dataset_id: "diffusers-internal-dev/ShotDEAD-LLTCC"
+model_id: "microsoft/Florence-2-large"
+dataset_id: "diffusers/ShotDEAD-v0"
 mixed_precision: "fp16"
-cache_dir: "/fsx/sayak/.cache"
+cache_dir: null
 num_proc: 4
 batch_size: 16
 gradient_accumulation_steps: 4
