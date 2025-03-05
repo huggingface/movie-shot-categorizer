@@ -30,7 +30,7 @@ accelerate launch \
 ## Inference
 
 ```bash
-python inference.py --image_path=...
+python inference.py --image_path=<PATH_TO_AN_IMAGE>
 ```
 
 ## Acknowledgement
