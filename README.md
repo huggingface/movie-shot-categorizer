@@ -11,7 +11,7 @@ the [microsoft/Florence-2-large](https://huggingface.co/microsoft/Florence-2-lar
 * Fine-tuned model checkpoint: [diffusers/shot-categorizer-v0](https://huggingface.co/diffusers/shot-categorizer-v0)
 * Dataset: [diffusers/ShotDEAD-v0](https://huggingface.co/datasets/diffusers/ShotDEAD-v0/)
 
-The model can be [used to curate video datasets](TODO) amongst other use cases. 
+The model can be [used to curate video datasets](https://github.com/huggingface/video-dataset-scripts/tree/main/video_processing#add-shot-categories) amongst other use cases. 
 
 ## Getting started
 
