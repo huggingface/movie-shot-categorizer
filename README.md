@@ -27,13 +27,15 @@ accelerate launch \
     --config=configs/training-configs/config.yaml
 ```
 
+We provide a SLURM configuration in the `run.slurm` file.
+
 ## Inference
 
 ```bash
 python inference.py --image_path=<PATH_TO_AN_IMAGE>
 ```
 
-Additionally, you can run the `accuracy.py` script 
+Additionally, you can run the `accuracy.py` script to compute aggregate metrics on the indvidual sgot categories on your dataset.
 
 ## Acknowledgement
 
