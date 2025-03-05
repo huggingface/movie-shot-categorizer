@@ -33,6 +33,8 @@ accelerate launch \
 python inference.py --image_path=<PATH_TO_AN_IMAGE>
 ```
 
+Additionally, you can run the `accuracy.py` script 
+
 ## Acknowledgement
 
 Thanks to [this blog post](https://huggingface.co/blog/finetune-florence2) on fine-tuning Florence-2.

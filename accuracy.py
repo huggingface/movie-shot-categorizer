@@ -1,7 +1,7 @@
 # git clone https://github.com/bigdata-pw/florence-tool.git; cd florence-tool; pip install -r requirements.txt; pip install -e .
 
 from florence_tool import FlorenceTool
-import os
+import argparse
 from datasets import load_dataset
 import wandb
 import tqdm
@@ -29,27 +29,20 @@ def compute_metrics(category):
     }
 
 
-root_ckpt_dir = "model_checkpoints_accelerate"
-checkpoints_to_evals = sorted(os.listdir(root_ckpt_dir))
-checkpoints_to_evals = [c for c in checkpoints_to_evals if not c.endswith(".py")]
-for checkpoint in checkpoints_to_evals:
-    wandb.init(project="shot-categorizer", name=f"{checkpoint}-eval")
+def accuracy(args):
+    checkpoint = args.ckpt_id_or_path
+    run_name = checkpoint.split("/")[-1]
+    wandb.init(project="shot-categorizer", name=f"{run_name}-eval")
 
-    checkpoint_path = os.path.join(root_ckpt_dir, checkpoint)
     florence = FlorenceTool(
-        checkpoint_path,
+        checkpoint,
         device="cuda",
         dtype="float16",
         check_task_types=False,
     )
     florence.load_model()
 
-    ds_to_id = (
-        "diffusers-internal-dev/ShotDEAD-test"
-        if "LLTCC" not in checkpoint
-        else "diffusers-internal-dev/ShotDEAD-LLTCC-test"
-    )
-    dataset = load_dataset(ds_to_id, split="train")
+    dataset = load_dataset(args.dataset_id, split=args.dataset_split)
 
     color = {"match": {}, "extra": {}, "missing": {}}
     lighting = {"match": {}, "extra": {}, "missing": {}}
@@ -156,7 +149,8 @@ for checkpoint in checkpoints_to_evals:
         f"Overall - Precision: {overall_precision:.2f}%, Recall: {overall_recall:.2f}%, F1-score: {overall_f1:.2f}%, Accuracy-score: {overall_accuracy:.2f}%"
     )
 
-    with open(f"{checkpoint}.json", "w") as f:
+    json_name = checkpoint.split("/")[-1]
+    with open(f"{json_name}.json", "w") as f:
         results = {
             "color": color,
             "lighting": lighting,
@@ -174,3 +168,13 @@ for checkpoint in checkpoints_to_evals:
         json.dump(results, f)
         wandb.log(results)
         wandb.finish()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ckpt_id_or_path", type=str, help="Checkpoint ID from the HF Hub or local file path.")
+    parser.add_argument("--dataset_id", type=str, help="Dataset ID to use.")
+    parser.add_argument("--dataset_split", type=str, default="train", help="Dataset split to use.")
+    args = parser.parse_args()
+
+    accuracy(args)
